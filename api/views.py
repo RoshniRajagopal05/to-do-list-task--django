@@ -1,15 +1,30 @@
 from django.shortcuts import render
-
-# Create your views here.
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
-from .models import Task
-from .serializers import TaskSerializer, UserSerializer
+from .models import Task, UserActionLog
+from .serializers import TaskSerializer, UserReportSerializer, UserUsageReportSerializer
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])  # ✅ Only admin can access
+def user_reports(request):
+    users = User.objects.filter(is_superuser=False)
+    serializer = UserReportSerializer(users, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])  # ✅ Only admin can access
+def user_usage_reports(request):
+    users = User.objects.filter(is_superuser=False)
+    serializer = UserUsageReportSerializer(users, many=True)
+    return Response(serializer.data)
+
 
 @api_view(['POST'])
 def register_user(request):
@@ -62,4 +77,24 @@ class TaskViewSet(viewsets.ModelViewSet):
         return tasks
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        task = serializer.save(user=self.request.user)
+        # ✅ Log action
+        UserActionLog.objects.create(user=self.request.user, action="add")
+
+
+@api_view(['POST'])
+def admin_login(request):
+    username = request.data.get('username')
+    password = request.data.get('password')
+
+    user = authenticate(username=username, password=password)
+
+    if user and user.is_superuser:   # ✅ only allow superusers
+        token, _ = Token.objects.get_or_create(user=user)
+        return Response({
+            'token': token.key,
+            'user_id': user.id,
+            'username': user.username,
+            'is_admin': True
+        })
+    return Response({'error': 'Invalid admin credentials'}, status=400)
