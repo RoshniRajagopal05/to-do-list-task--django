@@ -18,12 +18,44 @@ def user_reports(request):
     return Response(serializer.data)
 
 
+# @api_view(['GET'])
+# @permission_classes([IsAdminUser])  # ✅ Only admin can access
+# def user_usage_reports(request):
+#     users = UserActionLog.objects.all()
+#     print(users)
+#     serializer = UserUsageReportSerializer(users, many=True)
+#     print(serializer.data)
+#     return Response(serializer.data)
+
+from django.contrib.auth.models import User
+from django.db.models import Count, Q
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
+from .serializers import UserUsageReportSerializer
+
+from django.contrib.auth.models import User
+from django.db.models import Count, Q
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
+
 @api_view(['GET'])
 @permission_classes([IsAdminUser])  # ✅ Only admin can access
 def user_usage_reports(request):
-    users = User.objects.filter(is_superuser=False)
+    # ✅ Query User model and annotate counts from UserActionLog
+    users = User.objects.annotate(
+        added=Count("useractionlog", filter=Q(useractionlog__action="add")),
+        deleted=Count("useractionlog", filter=Q(useractionlog__action="delete")),
+        completed=Count("useractionlog", filter=Q(useractionlog__action="complete")),
+        edited=Count("useractionlog", filter=Q(useractionlog__action="edit")),
+        imported=Count("useractionlog", filter=Q(useractionlog__action="import")),
+        exported=Count("useractionlog", filter=Q(useractionlog__action="export")),
+    )
+
     serializer = UserUsageReportSerializer(users, many=True)
     return Response(serializer.data)
+
 
 
 @api_view(['POST'])
@@ -75,6 +107,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             tasks = tasks.filter(title__icontains=search)
 
         return tasks
+    
 
     def perform_create(self, serializer):
         task = serializer.save(user=self.request.user)
@@ -86,6 +119,7 @@ class TaskViewSet(viewsets.ModelViewSet):
 def admin_login(request):
     username = request.data.get('username')
     password = request.data.get('password')
+    print(username,password)
 
     user = authenticate(username=username, password=password)
 

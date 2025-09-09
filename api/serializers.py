@@ -33,7 +33,19 @@ class UserReportSerializer(serializers.ModelSerializer):
 
 
 # ✅ NEW: User Usage Report Serializer
+# class UserUsageReportSerializer(serializers.ModelSerializer):
+#     added = serializers.SerializerMethodField()
+#     deleted = serializers.SerializerMethodField()
+#     completed = serializers.SerializerMethodField()
+#     edited = serializers.SerializerMethodField()
+#     imported = serializers.SerializerMethodField()
+#     exported = serializers.SerializerMethodField()
+from rest_framework import serializers
+from django.contrib.auth.models import User
+from .models import UserActionLog
+
 class UserUsageReportSerializer(serializers.ModelSerializer):
+    # ✅ Computed fields using SerializerMethodField
     added = serializers.SerializerMethodField()
     deleted = serializers.SerializerMethodField()
     completed = serializers.SerializerMethodField()
@@ -43,8 +55,19 @@ class UserUsageReportSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "added", "deleted", "completed", "edited", "imported", "exported"]
+        fields = [
+            "id",
+            "username",
+            "email",
+            "added",
+            "deleted",
+            "completed",
+            "edited",
+            "imported",
+            "exported",
+        ]
 
+    # ✅ These methods are automatically called for SerializerMethodField
     def get_added(self, obj):
         return UserActionLog.objects.filter(user=obj, action="add").count()
 
@@ -62,4 +85,3 @@ class UserUsageReportSerializer(serializers.ModelSerializer):
 
     def get_exported(self, obj):
         return UserActionLog.objects.filter(user=obj, action="export").count()
-
