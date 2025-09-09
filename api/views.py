@@ -39,6 +39,21 @@ from django.db.models import Count, Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
+from django.utils import timezone
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def due_tasks(request):
+    today = timezone.now().date()
+    tomorrow = today + timezone.timedelta(days=1)
+
+    # Only fetch tasks for the logged-in user that are due tomorrow & not completed
+    tasks = Task.objects.filter(user=request.user, due_date=tomorrow, is_completed=False)
+
+    # Convert to JSON format
+    data = [{"id": t.id, "title": t.title, "due_date": t.due_date} for t in tasks]
+    return Response(data)
+
 
 @api_view(['GET'])
 @permission_classes([IsAdminUser])  # ✅ Only admin can access
@@ -114,6 +129,13 @@ class TaskViewSet(viewsets.ModelViewSet):
         # ✅ Log action
         UserActionLog.objects.create(user=self.request.user, action="add")
 
+    def perform_update(self, serializer):
+        task = serializer.save()
+        UserActionLog.objects.create(user=self.request.user, action="edit")
+
+    def perform_destroy(self, instance):
+        UserActionLog.objects.create(user=self.request.user, action="delete")
+        instance.delete()
 
 @api_view(['POST'])
 def admin_login(request):
@@ -132,3 +154,24 @@ def admin_login(request):
             'is_admin': True
         })
     return Response({'error': 'Invalid admin credentials'}, status=400)
+
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated,AllowAny
+from rest_framework.response import Response
+from .models import Reminder
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])   # 👈 only logged-in users allowed
+def get_reminders(request):
+    today = timezone.now().date()
+    tomorrow = today + timezone.timedelta(days=1)
+
+    tasks = Task.objects.filter(
+        user=request.user,      # 👈 only tasks for the logged-in user
+        due_date=tomorrow,
+        is_completed=False
+    )
+
+    reminders = [{"id": t.id, "message": f"Task '{t.title}' is due tomorrow!"} for t in tasks]
+    return Response(reminders)

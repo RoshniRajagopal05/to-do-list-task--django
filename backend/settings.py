@@ -92,7 +92,7 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'todo_db',
+        'NAME': 'movie_db',
         'USER': 'root',
         'PASSWORD': '',  # use your real password
         'HOST': 'localhost',
